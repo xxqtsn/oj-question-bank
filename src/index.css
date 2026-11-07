@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white border border-neutral-200 rounded-xl;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors;
+  }
+
+  .btn-primary {
+    @apply btn bg-neutral-900 text-white hover:bg-neutral-700;
+  }
+
+  .btn-ghost {
+    @apply btn text-neutral-700 hover:bg-neutral-100;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 text-sm bg-white border border-neutral-200 rounded-lg
+           focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900;
+  }
+}
+
+/* 难度徽章颜色 */
+.difficulty-easy {
+  @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+}
+.difficulty-medium {
+  @apply bg-amber-50 text-amber-700 border border-amber-200;
+}
+.difficulty-hard {
+  @apply bg-rose-50 text-rose-700 border border-rose-200;
+}
