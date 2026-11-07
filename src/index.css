@@ -10,7 +10,7 @@
   }
 
   html, body {
-    background-color: #050a07;
+    background-color: #000000;
     color: #b8ffdb;
     font-family: 'JetBrains Mono', 'PingFang SC', 'Microsoft YaHei', monospace;
     -webkit-font-smoothing: antialiased;
@@ -18,11 +18,17 @@
   }
 
   body {
+    background-color: #000000;
     background-image:
-      linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+      linear-gradient(rgba(0, 255, 136, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 136, 0.025) 1px, transparent 1px);
     background-size: 40px 40px;
     background-attachment: fixed;
+  }
+
+  #root {
+    min-height: 100vh;
+    background-color: #000000;
   }
 
   ::selection {

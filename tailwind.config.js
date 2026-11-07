@@ -5,7 +5,8 @@ export default {
     extend: {
       colors: {
         cyber: {
-          bg: '#050a07',
+          bg: '#000000',
+          bgAlt: '#050d08',
           panel: '#0a1410',
           border: '#0f2a1f',
           borderBright: '#1a4d38',
@@ -22,7 +23,7 @@ export default {
       fontFamily: {
         sans: [
           'JetBrains Mono',
-          'Inter',
+          'Orbitron',
           'ui-monospace',
           'monospace',
           'PingFang SC',
@@ -34,6 +35,11 @@ export default {
           'ui-monospace',
           'SFMono-Regular',
           'monospace',
+        ],
+        display: [
+          'Orbitron',
+          'JetBrains Mono',
+          'sans-serif',
         ],
       },
       boxShadow: {
