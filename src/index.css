@@ -1,52 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  html {
+  :root {
+    color-scheme: dark;
+  }
+
+  html, body {
+    background-color: #050a07;
+    color: #b8ffdb;
+    font-family: 'JetBrains Mono', 'PingFang SC', 'Microsoft YaHei', monospace;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    background-image:
+      linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(0, 255, 136, 0.35);
+    color: #050a07;
+  }
+
+  /* 滚动条 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #050a07;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #0f2a1f;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #00ff88;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-white border border-neutral-200 rounded-xl;
+    @apply bg-cyber-panel border border-cyber-border rounded-lg;
+    position: relative;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    border: 1px solid transparent;
+    background: linear-gradient(135deg, rgba(0,255,136,0.1), transparent 50%) border-box;
+    -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .cyber-border-top {
+    position: relative;
+  }
+  .cyber-border-top::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #00ff88 50%, transparent);
+    opacity: 0.6;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg transition-colors;
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-all duration-150 font-mono tracking-wider uppercase;
   }
 
   .btn-primary {
-    @apply btn bg-neutral-900 text-white hover:bg-neutral-700;
+    @apply btn bg-cyber-accent text-cyber-bg hover:shadow-glow;
   }
 
   .btn-ghost {
-    @apply btn text-neutral-700 hover:bg-neutral-100;
+    @apply btn border border-cyber-border text-cyber-accent hover:border-cyber-accent hover:bg-cyber-accent/5;
+  }
+
+  .btn-danger {
+    @apply btn border border-cyber-danger text-cyber-danger hover:bg-cyber-danger/10;
   }
 
   .badge {
-    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full;
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border font-mono uppercase tracking-wider;
   }
 
   .input {
-    @apply w-full px-3 py-2 text-sm bg-white border border-neutral-200 rounded-lg
-           focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900;
+    @apply w-full px-3 py-2 text-sm bg-cyber-bg border border-cyber-border text-cyber-text rounded-md
+           focus:outline-none focus:border-cyber-accent focus:shadow-glowSoft transition-all font-mono;
+  }
+
+  .cyber-title {
+    text-shadow: 0 0 10px rgba(0, 255, 136, 0.6), 0 0 30px rgba(0, 255, 136, 0.2);
+    letter-spacing: 0.05em;
+  }
+
+  .glow-text {
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.7);
+  }
+
+  .link-cyber {
+    @apply text-cyber-accent hover:glow-text transition-all;
+  }
+
+  .nav-link {
+    @apply text-sm font-mono tracking-wider uppercase transition-colors duration-150;
+  }
+  .nav-link-active {
+    @apply text-cyber-accent glow-text;
+  }
+  .nav-link-inactive {
+    @apply text-cyber-textDim hover:text-cyber-accent;
   }
 }
 
-/* 难度徽章颜色 */
+/* 难度徽章 */
 .difficulty-easy {
-  @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+  @apply bg-emerald-950/60 text-emerald-400 border-emerald-800;
 }
 .difficulty-medium {
-  @apply bg-amber-50 text-amber-700 border border-amber-200;
+  @apply bg-amber-950/60 text-amber-400 border-amber-800;
 }
 .difficulty-hard {
-  @apply bg-rose-50 text-rose-700 border border-rose-200;
+  @apply bg-rose-950/60 text-rose-400 border-rose-800;
+}
+
+/* 表格行 */
+tr.cyber-row {
+  @apply border-b border-cyber-border/60;
+}
+tr.cyber-row:hover {
+  @apply bg-cyber-accent/5;
 }

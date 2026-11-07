@@ -8,95 +8,72 @@ export default function ProblemDetailPage() {
 
   if (!problem) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-24 text-center">
-        <div className="text-6xl mb-6">😕</div>
-        <h1 className="text-2xl font-bold mb-2">题目不存在</h1>
-        <p className="text-neutral-500 mb-6">
-          抱歉，我们找不到这道题。它可能已经被移除了。
-        </p>
-        <Link to="/problems" className="btn-primary">
-          返回题库
-        </Link>
+      <div className="max-w-3xl mx-auto px-6 py-24 text-center font-mono">
+        <div className="text-6xl mb-6 text-cyber-danger">ERR_404</div>
+        <h1 className="text-2xl text-cyber-accent mb-2">PROBLEM NOT FOUND</h1>
+        <p className="text-cyber-textDim mb-6">[ object does not exist in database ]</p>
+        <Link to="/problems" className="btn-primary">← BACK</Link>
       </div>
     )
   }
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
-      {/* Breadcrumb */}
-      <div className="mb-6">
-        <Link to="/problems" className="text-sm text-neutral-500 hover:text-neutral-900 transition-colors">
-          ← 返回题库
-        </Link>
+      <div className="mb-6 font-mono">
+        <Link to="/problems" className="text-cyber-accent link-cyber">← ../problems</Link>
       </div>
 
-      {/* Header */}
-      <header className="mb-8 pb-6 border-b border-neutral-200">
+      <header className="mb-8 pb-6 border-b border-cyber-border">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="font-mono text-sm text-neutral-400">#{problem.id}</span>
+            <div className="flex items-center gap-3 mb-3 font-mono">
+              <span className="text-cyber-textMute">#{String(problem.id).padStart(3, '0')}</span>
               <DifficultyBadge level={problem.difficulty} />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">{problem.title}</h1>
+            <h1 className="text-3xl font-bold text-cyber-accent cyber-title font-mono">{problem.title}</h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-4 flex-wrap">
+        <div className="flex items-center gap-2 mt-4 flex-wrap font-mono">
           {problem.tags.map(tag => (
-            <span
-              key={tag}
-              className="text-xs text-neutral-600 bg-neutral-100 px-2 py-1 rounded-md"
-            >
-              {tag}
-            </span>
+            <span key={tag} className="text-xs text-cyber-textDim border border-cyber-border px-2 py-1 rounded">[#{tag}]</span>
           ))}
-          <span className="text-xs text-neutral-400 ml-2">
-            通过率 {problem.acceptance.toFixed(1)}%
-          </span>
+          <span className="text-xs text-cyber-textMute ml-2">AC {problem.acceptance.toFixed(1)}%</span>
         </div>
       </header>
 
-      {/* Description */}
       <section className="mb-10">
-        <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-4">
-          题目描述
-        </h2>
-        <div className="prose prose-neutral max-w-none text-[15px] leading-relaxed text-neutral-800 whitespace-pre-line">
+        <h2 className="text-xs font-mono text-cyber-textDim uppercase tracking-widest mb-4">// DESCRIPTION</h2>
+        <div className="text-cyber-text leading-relaxed font-mono whitespace-pre-line">
           {problem.description}
         </div>
       </section>
 
-      {/* Examples */}
       <section className="mb-10">
-        <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-4">
-          示例
-        </h2>
+        <h2 className="text-xs font-mono text-cyber-textDim uppercase tracking-widest mb-4">// EXAMPLES</h2>
         <div className="space-y-4">
           {problem.examples.map((ex, idx) => (
             <div key={idx} className="card overflow-hidden">
-              <div className="px-4 py-2 text-xs font-medium text-neutral-500 bg-neutral-50 border-b border-neutral-200">
-                示例 {idx + 1}
+              <div className="px-4 py-2 text-xs font-mono text-cyber-accent bg-cyber-accent/10 border-b border-cyber-border">
+                EXAMPLE_{idx + 1}
               </div>
               <div className="p-4 space-y-3">
                 <div>
-                  <div className="text-xs font-medium text-neutral-400 mb-1">输入</div>
-                  <pre className="font-mono text-sm bg-neutral-50 border border-neutral-200 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
+                  <div className="text-xs font-mono text-cyber-textDim mb-1">INPUT</div>
+                  <pre className="font-mono text-sm bg-cyber-bg border border-cyber-border rounded p-3 overflow-x-auto whitespace-pre-wrap break-all text-cyber-accent">
                     <code>{ex.input}</code>
                   </pre>
                 </div>
                 <div>
-                  <div className="text-xs font-medium text-neutral-400 mb-1">输出</div>
-                  <pre className="font-mono text-sm bg-neutral-50 border border-neutral-200 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
+                  <div className="text-xs font-mono text-cyber-textDim mb-1">OUTPUT</div>
+                  <pre className="font-mono text-sm bg-cyber-bg border border-cyber-border rounded p-3 overflow-x-auto whitespace-pre-wrap break-all text-cyber-accent">
                     <code>{ex.output}</code>
                   </pre>
                 </div>
                 {ex.explanation && (
                   <div>
-                    <div className="text-xs font-medium text-neutral-400 mb-1">解释</div>
-                    <div className="text-sm text-neutral-700 leading-relaxed whitespace-pre-line">
-                      {ex.explanation}
-                    </div>
+                    <div className="text-xs font-mono text-cyber-textDim mb-1">EXPLANATION</div>
+                    <div className="text-sm text-cyber-text font-mono leading-relaxed whitespace-pre-line">{ex.explanation}</div>
                   </div>
                 )}
               </div>
@@ -105,17 +82,12 @@ export default function ProblemDetailPage() {
         </div>
       </section>
 
-      {/* Constraints */}
       {problem.constraints && problem.constraints.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-4">
-            约束条件
-          </h2>
-          <ul className="space-y-1.5">
+          <h2 className="text-xs font-mono text-cyber-textDim uppercase tracking-widest mb-4">// CONSTRAINTS</h2>
+          <ul className="space-y-1.5 font-mono text-cyber-textDim">
             {problem.constraints.map((c, idx) => (
-              <li key={idx} className="font-mono text-sm text-neutral-700">
-                · {c}
-              </li>
+              <li key={idx}>· {c}</li>
             ))}
           </ul>
         </section>
