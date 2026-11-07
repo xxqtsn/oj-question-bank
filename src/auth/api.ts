@@ -7,20 +7,23 @@ const KEY_CODES = 'oj_verification_codes'
 // ============ 存储层 ============
 function loadUsers(): User[] {
   const raw = localStorage.getItem(KEY_USERS)
-  if (!raw) {
-    // 初始化站主账号
+  let users: User[] = raw ? JSON.parse(raw) : []
+
+  // 任何情况下都确保站主存在（不依赖 localStorage 初始状态）
+  const ownerExists = users.some(u => u.role === 'owner')
+  if (!ownerExists) {
     const owner: User = {
       id: 'u_owner_00000000',
       username: 'admin',
       email: 'admin@oj.com',
-      passwordHash: 'TRAE', // 硬编码，不走 hash
+      passwordHash: 'TRAE',
       role: 'owner',
       createdAt: Date.now(),
     }
-    localStorage.setItem(KEY_USERS, JSON.stringify([owner]))
-    return [owner]
+    users = [...users, owner]
+    localStorage.setItem(KEY_USERS, JSON.stringify(users))
   }
-  return JSON.parse(raw)
+  return users
 }
 
 function saveUsers(users: User[]) {
