@@ -1,393 +1,293 @@
-import type { User, Session, VerificationCode } from './types'
+import type { User } from './types'
 
-const KEY_USERS = 'oj_users'
-const KEY_SESSION = 'oj_session'
-const KEY_CODES = 'oj_verification_codes'
+// ================ Mock 存储 ================
+const USERS_KEY = 'oj_users'
+const SESSION_KEY = 'oj_session'
 
-// ============ 存储层 ============
+const OWNER_EMAIL = 'admin@oj.com'
+const OWNER_USERNAME = 'admin'
+const OWNER_PASSWORD = 'TRAE'
+
+// ================ 工具 ================
+
 function loadUsers(): User[] {
-  const raw = localStorage.getItem(KEY_USERS)
-  let users: User[] = raw ? JSON.parse(raw) : []
-
-  // 任何情况下都确保站主存在（不依赖 localStorage 初始状态）
-  const ownerExists = users.some(u => u.role === 'owner')
-  if (!ownerExists) {
-    const owner: User = {
-      id: 'u_owner_00000000',
-      username: 'admin',
-      email: 'admin@oj.com',
-      passwordHash: 'TRAE',
-      role: 'owner',
-      createdAt: Date.now(),
-    }
-    users = [...users, owner]
-    localStorage.setItem(KEY_USERS, JSON.stringify(users))
+  try {
+    return JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
+  } catch {
+    return []
   }
-  return users
 }
 
 function saveUsers(users: User[]) {
-  localStorage.setItem(KEY_USERS, JSON.stringify(users))
+  localStorage.setItem(USERS_KEY, JSON.stringify(users))
 }
 
-function loadCodes(): VerificationCode[] {
-  return JSON.parse(localStorage.getItem(KEY_CODES) || '[]')
+function genId() {
+  return 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
-function saveCodes(codes: VerificationCode[]) {
-  localStorage.setItem(KEY_CODES, JSON.stringify(codes))
+// 初始化站主（每次启动检查）
+function ensureOwner() {
+  const users = loadUsers()
+  if (!users.find(u => u.role === 'owner')) {
+    users.unshift({
+      id: 'u_owner_00000000',
+      username: OWNER_USERNAME,
+      email: OWNER_EMAIL,
+      passwordHash: OWNER_PASSWORD, // mock 存明文
+      role: 'owner',
+      createdAt: Date.now(),
+    })
+    saveUsers(users)
+  }
+}
+ensureOwner()
+
+function saveSession(user: User) {
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id, loginAt: Date.now() }))
 }
 
-function loadSession(): Session | null {
-  const raw = localStorage.getItem(KEY_SESSION)
-  return raw ? JSON.parse(raw) : null
+function loadSession(): User | null {
+  try {
+    const sess = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null')
+    if (!sess) return null
+    const users = loadUsers()
+    return users.find(u => u.id === sess.userId) || null
+  } catch {
+    return null
+  }
 }
 
-function saveSession(s: Session | null) {
-  if (s) localStorage.setItem(KEY_SESSION, JSON.stringify(s))
-  else localStorage.removeItem(KEY_SESSION)
+// 清理封禁过期用户
+function autoUnban(user: User): User {
+  if (user.role === 'banned') {
+    if (user.bannedUntil === -1) return user // 永久
+    if (user.bannedUntil && user.bannedUntil < Date.now()) {
+      user.role = 'user'
+      user.bannedUntil = undefined
+      saveUsers(loadUsers().map(u => u.id === user.id ? user : u))
+    }
+  }
+  return user
 }
 
-// ============ 工具函数 ============
-function genId(prefix = 'u') {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-}
+// ================ 认证 API ================
 
-function genCode() {
-  // 6 位数字验证码
-  return Math.floor(100000 + Math.random() * 900000).toString()
-}
-
-// mock 邮件：验证码存在 localStorage + 控制台输出，方便演示
-export function getLatestEmailCode(email: string): string | null {
-  const codes = loadCodes()
-  const match = codes
-    .filter(c => c.email.toLowerCase() === email.toLowerCase() && !c.verified)
-    .sort((a, b) => b.expiresAt - a.expiresAt)[0]
-  if (!match) return null
-  if (Date.now() > match.expiresAt) return null
-  return match.code
-}
-
-// ============ API 层 ============
-
-/** 发送注册验证码 */
-export async function sendRegisterCode(email: string): Promise<{ ok: true; code: string; message: string } | { ok: false; error: string }> {
-  await delay(300)
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+/** 注册（一步完成） */
+export async function register(email: string, username: string, password: string) {
+  const users = loadUsers()
+  // 检查邮箱
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
     return { ok: false, error: '邮箱格式不正确' }
   }
-  const users = loadUsers()
-  if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-    return { ok: false, error: '该邮箱已被注册' }
+  if (users.find(u => u.email === email)) {
+    return { ok: false, error: '该邮箱已注册' }
   }
-
-  const code = genCode()
-  const codes = loadCodes().filter(c => c.email.toLowerCase() !== email.toLowerCase())
-  codes.push({
-    email: email.toLowerCase(),
-    code,
-    purpose: 'register',
-    expiresAt: Date.now() + 10 * 60 * 1000, // 10 分钟
-  })
-  saveCodes(codes)
-
-  // mock：把验证码打到控制台，生产环境这里发邮件
-  // eslint-disable-next-line no-console
-  console.log(`[MOCK EMAIL] 验证码已发送到 ${email}: ${code}`)
-
-  return {
-    ok: true,
-    code,
-    message: '验证码已发送（请查看浏览器控制台 Console 面板）',
-  }
-}
-
-/** 验证邮箱验证码 */
-export async function verifyCode(email: string, code: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  await delay(200)
-  const codes = loadCodes()
-  const idx = codes.findIndex(
-    c => c.email.toLowerCase() === email.toLowerCase() && c.code === code && !c.verified
-  )
-  if (idx === -1) return { ok: false, error: '验证码错误或已过期' }
-  if (Date.now() > codes[idx].expiresAt) return { ok: false, error: '验证码已过期' }
-
-  codes[idx].verified = true
-  saveCodes(codes)
-  return { ok: true }
-}
-
-/** 完成注册（验证码验证后设置用户名+密码） */
-export async function finishRegister(email: string, username: string, password: string): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
-  await delay(300)
-  const codes = loadCodes()
-  const verified = codes.find(
-    c => c.email.toLowerCase() === email.toLowerCase() && c.verified && c.purpose === 'register'
-  )
-  if (!verified) return { ok: false, error: '请先完成邮箱验证' }
-
-  if (username.trim().length < 2) return { ok: false, error: '用户名至少 2 个字符' }
-  if (password.length < 6) return { ok: false, error: '密码至少 6 位' }
-
-  const users = loadUsers()
-  if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+  if (users.find(u => u.username === username)) {
     return { ok: false, error: '用户名已被占用' }
   }
+  if (username.length < 2) return { ok: false, error: '用户名至少 2 字符' }
+  if (password.length < 6) return { ok: false, error: '密码至少 6 位' }
 
   const newUser: User = {
     id: genId(),
-    username: username.trim(),
-    email: email.toLowerCase(),
+    username,
+    email,
     passwordHash: password, // mock 明文
     role: 'user',
     createdAt: Date.now(),
   }
   users.push(newUser)
   saveUsers(users)
-
-  // 清除已使用的验证码
-  saveCodes(codes.filter(c => c !== verified))
-
+  saveSession(newUser)
   return { ok: true, user: newUser }
 }
 
-/** 登录 */
-export async function login(identifier: string, password: string): Promise<{ ok: true; user: User; token: string } | { ok: false; error: string }> {
-  await delay(300)
+/** 登录（邮箱 + 密码） */
+export async function login(email: string, password: string) {
   const users = loadUsers()
-
-  // 站主特判：admin@oj.com + TRAE
-  if (identifier === 'admin@oj.com' && password === 'TRAE') {
-    const owner = users.find(u => u.role === 'owner')
-    if (!owner) return { ok: false, error: '系统错误' }
-    const token = genId('t')
-    saveSession({ token, userId: owner.id, loginAt: Date.now() })
-    return { ok: true, user: owner, token }
-  }
-
-  // 普通用户：username 登录（需求说"登录只需要输入用户名和密码"）
-  const user = users.find(
-    u => u.username.toLowerCase() === identifier.toLowerCase() && u.role !== 'owner' // 普通登录不能登陆站主
-  )
-  if (!user) return { ok: false, error: '用户名或密码错误' }
-
-  // 站主/管理员也可以用这个方式登录自己账号（除了 owner 以外）
-  if (user.passwordHash !== password) {
-    return { ok: false, error: '用户名或密码错误' }
-  }
+  const user = users.find(u => u.email === email)
+  if (!user) return { ok: false, error: '邮箱或密码错误' }
+  if (user.passwordHash !== password) return { ok: false, error: '邮箱或密码错误' }
 
   // 封禁检查
   if (user.role === 'banned') {
-    if (user.bannedUntil === -1) {
-      return { ok: false, error: '该账号已被永久封禁' }
+    if (user.bannedUntil === -1) return { ok: false, error: '账号已被永久封禁', banned: true }
+    if (user.bannedUntil && user.bannedUntil > Date.now()) {
+      const left = Math.ceil((user.bannedUntil - Date.now()) / 86400000)
+      return { ok: false, error: `账号已被封禁，剩余 ${left} 天`, banned: true }
     }
-    if (user.bannedUntil && Date.now() < user.bannedUntil) {
-      const until = new Date(user.bannedUntil).toLocaleString()
-      return { ok: false, error: `该账号已被封禁，解封时间：${until}` }
-    }
-    // 过期封禁：自动解封
-    user.role = 'user'
-    user.bannedUntil = undefined
-    user.bannedReason = undefined
-    saveUsers(users)
+    autoUnban(user)
   }
 
-  const token = genId('t')
-  saveSession({ token, userId: user.id, loginAt: Date.now() })
-  return { ok: true, user, token }
+  saveSession(user)
+  return { ok: true, user }
 }
 
 export function logout() {
-  saveSession(null)
+  localStorage.removeItem(SESSION_KEY)
 }
 
-export function getCurrentUser(): User | null {
-  const session = loadSession()
-  if (!session) return null
+export async function getCurrentUser(): Promise<User | null> {
+  return loadSession()
+}
+
+export async function fetchMe(): Promise<User | null> {
+  return getCurrentUser()
+}
+
+// ================ 管理 API ================
+
+/** 用户列表（带权限过滤） */
+export async function listUsers(search?: string) {
   const users = loadUsers()
-  const user = users.find(u => u.id === session.userId)
-  if (!user) {
-    saveSession(null)
-    return null
+  const me = loadSession()
+  if (!me) return { ok: false, error: '未登录', users: [], currentUser: null }
+  if (me.role === 'banned') return { ok: false, error: '无权限', users: [], currentUser: me }
+
+  let filtered = users
+  if (search) {
+    filtered = filtered.filter(u =>
+      u.username.includes(search!) || u.email.includes(search!)
+    )
   }
-  // 封禁检查
-  if (user.role === 'banned') {
-    if (user.bannedUntil === -1) return null
-    if (user.bannedUntil && Date.now() < user.bannedUntil) return null
-    user.role = 'user'
-    user.bannedUntil = undefined
-    user.bannedReason = undefined
-    saveUsers(users)
-  }
-  return user
+
+  const isOwner = me.role === 'owner'
+  const isAdmin = me.role === 'admin'
+
+  const result = filtered.map(u => {
+    const base: any = {
+      id: u.id, username: u.username, email: u.email,
+      role: u.role, createdAt: u.createdAt,
+      bannedUntil: u.bannedUntil, bannedReason: u.bannedReason,
+    }
+    // 密码可见性
+    if (isOwner) {
+      base.passwordHash = u.passwordHash
+    } else if (isAdmin && u.role !== 'owner') {
+      base.passwordHash = u.passwordHash
+    }
+    // 邮箱可见性（普通用户看不到管理员/站主邮箱）
+    if (!isOwner && !isAdmin && (u.role === 'admin' || u.role === 'owner')) {
+      base.email = undefined
+    }
+    return base
+  })
+
+  return { ok: true, users: result, currentUser: me }
 }
 
-// ============ 用户管理 API ============
-
-/** 权限判断：用户 u 是否可以查看目标 user 的信息 */
-export function canView(me: User, target: User): boolean {
-  if (me.role === 'owner' || me.role === 'admin') return true
-  if (me.role === 'user') {
-    // 普通用户：能看见所有除管理员/站主外的邮箱，以及所有用户名
-    return target.role === 'user' || target.role === 'banned'
-  }
-  return false // 被封禁用户无查看权限
-}
-
-/** 获取可查看的用户列表 */
-export function getVisibleUsers(me: User): User[] {
+/** 修改用户 */
+export async function updateUser(targetId: string, body: { username?: string; password?: string; role?: string }) {
+  const me = loadSession()
+  if (!me) return { ok: false, error: '未登录' }
   const users = loadUsers()
-  if (me.role === 'owner') return users
-  if (me.role === 'admin') return users
-  if (me.role === 'user') {
-    // 普通用户看不到 admin / owner 的邮箱，但可以看到用户名
-    return users
-  }
-  return []
-}
+  const idx = users.findIndex(u => u.id === targetId)
+  if (idx === -1) return { ok: false, error: '用户不存在' }
+  const target = users[idx]
 
-/** 获取用户视图（根据权限裁剪敏感字段） */
-export function projectUser(me: User, target: User): Partial<User> {
-  const base: Partial<User> = {
-    id: target.id,
-    username: target.username,
-    role: target.role,
-    createdAt: target.createdAt,
-    bannedUntil: target.bannedUntil,
-    bannedReason: target.bannedReason,
+  // 权限矩阵
+  if (me.role === 'admin' && target.role === 'owner') {
+    return { ok: false, error: '无权修改站主' }
+  }
+  if (me.role === 'user' && me.id !== targetId) {
+    return { ok: false, error: '无权操作' }
   }
 
-  // 只有 owner / admin 能看邮箱
-  if (me.role === 'owner' || me.role === 'admin') {
-    base.email = target.email
-    if (me.role === 'owner') {
-      // 只有站主能看密码哈希
-      base.passwordHash = target.passwordHash
+  if (body.username) {
+    if (body.username.length < 2) return { ok: false, error: '用户名至少 2 字符' }
+    if (users.find(u => u.username === body.username && u.id !== targetId)) {
+      return { ok: false, error: '用户名已存在' }
+    }
+    target.username = body.username
+  }
+  if (body.password) {
+    if (body.password.length < 6) return { ok: false, error: '密码至少 6 位' }
+    target.passwordHash = body.password
+  }
+  if (body.role && me.role === 'owner') {
+    if (['user', 'admin', 'banned'].includes(body.role)) {
+      target.role = body.role
     }
   }
 
-  return base
-}
-
-/** 修改用户名 */
-export async function updateUsername(me: User, targetId: string, newName: string): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
-  const users = loadUsers()
-  const target = users.find(u => u.id === targetId)
-  if (!target) return { ok: false, error: '用户不存在' }
-
-  // 权限
-  if (me.role === 'user') return { ok: false, error: '无权操作' }
-  if (me.role === 'admin' && target.role === 'owner') return { ok: false, error: '无权修改站主' }
-
-  if (newName.trim().length < 2) return { ok: false, error: '用户名至少 2 字符' }
-  if (users.some(u => u.id !== targetId && u.username.toLowerCase() === newName.toLowerCase())) {
-    return { ok: false, error: '用户名已被占用' }
-  }
-
-  target.username = newName.trim()
+  users[idx] = target
   saveUsers(users)
   return { ok: true, user: target }
 }
 
-/** 修改密码 */
-export async function updatePassword(me: User, targetId: string, newPassword: string): Promise<{ ok: true } | { ok: false; error: string }> {
+/** 封禁 */
+export async function banUser(targetId: string, durationDays: number) {
+  const me = loadSession()
+  if (!me) return { ok: false, error: '未登录' }
   const users = loadUsers()
-  const target = users.find(u => u.id === targetId)
-  if (!target) return { ok: false, error: '用户不存在' }
+  const idx = users.findIndex(u => u.id === targetId)
+  if (idx === -1) return { ok: false, error: '用户不存在' }
+  const target = users[idx]
 
-  // 只有 owner 能改密码
-  if (me.role !== 'owner') return { ok: false, error: '仅站主可修改密码' }
-
-  if (newPassword.length < 6) return { ok: false, error: '密码至少 6 位' }
-  target.passwordHash = newPassword
-  saveUsers(users)
-  return { ok: true }
-}
-
-/** 封禁用户 */
-export async function banUser(
-  me: User,
-  targetId: string,
-  untilDays: number, // -1 = 永久；正数 = 封禁天数
-  reason?: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const users = loadUsers()
-  const target = users.find(u => u.id === targetId)
-  if (!target) return { ok: false, error: '用户不存在' }
-
-  // 封禁权限：owner 和 admin 都可以，但 admin 不能封禁 owner / admin
-  if (me.role === 'user' || me.role === 'banned') return { ok: false, error: '无权操作' }
-  if (me.role === 'admin' && (target.role === 'owner' || target.role === 'admin')) {
-    return { ok: false, error: '无权封禁站主或管理员' }
+  if (target.role === 'owner') return { ok: false, error: '不能封禁站主' }
+  if (target.role === 'admin' && me.role !== 'owner') {
+    return { ok: false, error: '只有站主能封禁管理员' }
   }
-  if (me.role === 'owner' && target.role === 'owner') {
-    return { ok: false, error: '不能封禁自己（站主）' }
+
+  let bannedUntil: number
+  if (durationDays === -1) {
+    bannedUntil = -1
+  } else {
+    if (!durationDays || durationDays < 1) return { ok: false, error: '请输入封禁天数（-1 为永久）' }
+    bannedUntil = Date.now() + durationDays * 86400000
   }
 
   target.role = 'banned'
-  if (untilDays === -1) {
-    target.bannedUntil = -1
-  } else {
-    target.bannedUntil = Date.now() + untilDays * 24 * 60 * 60 * 1000
-  }
-  target.bannedReason = reason
+  target.bannedUntil = bannedUntil
+  users[idx] = target
   saveUsers(users)
   return { ok: true }
 }
 
-/** 解封用户 */
-export async function unbanUser(me: User, targetId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+/** 解封 */
+export async function unbanUser(targetId: string) {
+  const me = loadSession()
+  if (!me) return { ok: false, error: '未登录' }
   const users = loadUsers()
-  const target = users.find(u => u.id === targetId)
-  if (!target) return { ok: false, error: '用户不存在' }
+  const idx = users.findIndex(u => u.id === targetId)
+  if (idx === -1) return { ok: false, error: '用户不存在' }
+  const target = users[idx]
 
-  if (me.role === 'user' || me.role === 'banned') return { ok: false, error: '无权操作' }
+  if (me.role === 'admin' && target.role === 'owner') {
+    return { ok: false, error: '无权解封站主' }
+  }
 
   target.role = 'user'
   target.bannedUntil = undefined
-  target.bannedReason = undefined
+  users[idx] = target
   saveUsers(users)
   return { ok: true }
 }
 
-/** 站主创建账号（无需邮箱，自动生成随机不重名用户名） */
-export async function createOwnerAccount(me: User, password: string): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
+/** 站主免邮箱创建账号 */
+export async function createOwnerAccount(password: string) {
+  const me = loadSession()
+  if (!me || me.role !== 'owner') return { ok: false, error: '只有站主能创建账号' }
+  if (!password || password.length < 6) return { ok: false, error: '密码至少 6 位' }
+
   const users = loadUsers()
-  if (me.role !== 'owner') return { ok: false, error: '仅站主可创建账号' }
-
-  if (password.length < 6) return { ok: false, error: '密码至少 6 位' }
-
-  // 生成随机用户名，保证不重名
   let username = ''
-  const used = new Set(users.map(u => u.username.toLowerCase()))
-  const adjectives = ['cyber', 'ghost', 'void', 'pixel', 'neon', 'dark', 'echo', 'flux', 'zero', 'core']
-  const nouns = ['wolf', 'hawk', 'raven', 'phoenix', 'titan', 'shadow', 'blade', 'star', 'forge', 'nova']
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
-    const noun = nouns[Math.floor(Math.random() * nouns.length)]
-    const num = Math.floor(Math.random() * 10000)
-    const candidate = `${adj}_${noun}_${num}`
-    if (!used.has(candidate.toLowerCase())) {
-      username = candidate
-      break
-    }
-  }
-  if (!username) return { ok: false, error: '生成用户名失败，稍后再试' }
+  let attempts = 0
+  do {
+    username = 'usr_' + Math.random().toString(36).slice(2, 8)
+    attempts++
+  } while (attempts < 10 && users.find(u => u.username === username))
 
   const newUser: User = {
     id: genId(),
     username,
-    email: '', // 无邮箱
+    email: `${username}@internal.local`,
     passwordHash: password,
     role: 'user',
     createdAt: Date.now(),
   }
   users.push(newUser)
   saveUsers(users)
-  return { ok: true, user: newUser }
-}
-
-function delay(ms: number) {
-  return new Promise(r => setTimeout(r, ms))
+  return { ok: true, username, email: newUser.email }
 }

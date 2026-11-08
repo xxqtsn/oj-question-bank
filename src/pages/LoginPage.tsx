@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { login } from '../auth/api'
 
 export default function LoginPage() {
-  const [identifier, setIdentifier] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -15,13 +15,13 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const res = await login(identifier.trim(), password)
+    const res = await login(email.trim(), password)
     setLoading(false)
     if (!res.ok) {
-      setError(res.error)
+      setError(res.error || '登录失败')
       return
     }
-    setUser(res.user)
+    setUser(res.user || null)
     navigate('/', { replace: true })
   }
 
@@ -33,13 +33,13 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs text-cyber-textDim mb-1 uppercase tracking-wider">{'> USERNAME / EMAIL'}</label>
+            <label className="block text-xs text-cyber-textDim mb-1 uppercase tracking-wider">{'> EMAIL'}</label>
             <input
               className="input"
-              placeholder="username"
-              value={identifier}
-              onChange={e => setIdentifier(e.target.value)}
-              autoComplete="username"
+              placeholder="you@example.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              autoComplete="email"
               required
             />
           </div>
