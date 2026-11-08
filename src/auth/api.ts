@@ -206,8 +206,9 @@ export async function updateUser(targetId: string, body: { username?: string; pa
     target.passwordHash = body.password
   }
   if (body.role && me.role === 'owner') {
-    if (['user', 'admin', 'banned'].includes(body.role)) {
-      target.role = body.role
+    const validRoles: User['role'][] = ['user', 'admin', 'banned']
+    if (validRoles.includes(body.role as User['role'])) {
+      target.role = body.role as User['role']
     }
   }
 
