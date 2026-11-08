@@ -1,40 +1,31 @@
 import type { User } from './types'
 
 // ================ 运行模式探测 ================
-// 生产：走 Worker；开发：优先 Worker（通过 Vite proxy），Worker 不可用时 fallback 到 localStorage mock
+// 有 VITE_API_BASE 就强制走 Worker（不发探测请求，避免国内 workers.dev 超时）
+// 没配置时才 fallback 到 localStorage mock
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 const TOKEN_KEY = 'oj_token'
-const WORKER_CHECK_TIMEOUT = 5000
 
-let workerChecked = false
-let workerAvailable = false
+// 构建时硬编码了 URL → 强制走 Worker，不做网络探测
+const FORCE_WORKER = !!API_BASE
 
-async function detectWorker(): Promise<boolean> {
-  if (workerChecked) return workerAvailable
-  workerChecked = true
-  if (!API_BASE) {
-    // 没有显式配置 API_BASE，检查 Vite dev proxy 路径是否可达
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'OPTIONS',
-        signal: AbortSignal.timeout(WORKER_CHECK_TIMEOUT),
-      })
-      workerAvailable = res.ok || res.status === 204
-    } catch {
-      workerAvailable = false
-    }
-    return workerAvailable
-  }
+// 没配置 API_BASE 时，尝试探测 Vite dev proxy 是否可达（仅开发环境）
+let proxyChecked = false
+let proxyAvailable = false
+
+async function detectProxy(): Promise<boolean> {
+  if (proxyChecked) return proxyAvailable
+  proxyChecked = true
   try {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const res = await fetch('/api/auth/login', {
       method: 'OPTIONS',
-      signal: AbortSignal.timeout(WORKER_CHECK_TIMEOUT),
+      signal: AbortSignal.timeout(3000),
     })
-    workerAvailable = res.ok || res.status === 204
+    proxyAvailable = res.ok || res.status === 204
   } catch {
-    workerAvailable = false
+    proxyAvailable = false
   }
-  return workerAvailable
+  return proxyAvailable
 }
 
 // ================ Worker 字段映射 ================
@@ -409,7 +400,8 @@ async function m_createOwnerAccount(password: string) {
 
 // ================ 导出层：自动路由 ================
 async function useWorker(): Promise<boolean> {
-  return detectWorker()
+  if (FORCE_WORKER) return true
+  return detectProxy()
 }
 
 export async function register(email: string, username: string, password: string) {
@@ -423,7 +415,7 @@ export async function login(email: string, password: string) {
 }
 
 export function logout() {
-  if (workerChecked && workerAvailable) w_logout()
+  if (FORCE_WORKER) w_logout()
   else m_logout()
 }
 
