@@ -1,19 +1,22 @@
 import type { User } from './types'
 
 // ================ 运行模式探测 ================
-// 有 VITE_API_BASE 就强制走 Worker（不发探测请求，避免国内 workers.dev 超时）
-// 没配置时才 fallback 到 localStorage mock
-const API_BASE = import.meta.env.VITE_API_BASE || ''
+// 生产（Pages）：用相对路径 /api → Pages Functions 代理到 Worker
+// 开发（localhost）：探测 Vite proxy 或 fallback localStorage mock
+const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 const TOKEN_KEY = 'oj_token'
 
-// 构建时硬编码了 URL → 强制走 Worker，不做网络探测
-const FORCE_WORKER = !!API_BASE
+// 是否在 Pages 生产环境（非 localhost）
+const IS_PROD = typeof window !== 'undefined' &&
+  !/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(window.location.hostname)
 
-// 没配置 API_BASE 时，尝试探测 Vite dev proxy 是否可达（仅开发环境）
+// 生产环境强制走 Worker（相对路径 /api → Pages Functions 代理）
+// 开发环境先探测 Vite proxy 可达性
 let proxyChecked = false
 let proxyAvailable = false
 
-async function detectProxy(): Promise<boolean> {
+async function shouldUseWorker(): Promise<boolean> {
+  if (IS_PROD) return true
   if (proxyChecked) return proxyAvailable
   proxyChecked = true
   try {
@@ -400,8 +403,7 @@ async function m_createOwnerAccount(password: string) {
 
 // ================ 导出层：自动路由 ================
 async function useWorker(): Promise<boolean> {
-  if (FORCE_WORKER) return true
-  return detectProxy()
+  return shouldUseWorker()
 }
 
 export async function register(email: string, username: string, password: string) {
@@ -415,8 +417,13 @@ export async function login(email: string, password: string) {
 }
 
 export function logout() {
-  if (FORCE_WORKER) w_logout()
-  else m_logout()
+  if (IS_PROD) {
+    w_logout()
+  } else {
+    // 开发环境：同时清理 Worker token 和 mock session
+    w_logout()
+    m_logout()
+  }
 }
 
 export async function getCurrentUser(): Promise<User | null> {
